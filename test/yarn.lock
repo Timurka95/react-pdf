@@ -1374,7 +1374,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"merge-refs@npm:^1.0.0":
+"merge-refs@npm:^1.1.2":
   version: 1.1.2
   resolution: "merge-refs@npm:1.1.2"
   dependencies:
@@ -1765,7 +1765,7 @@ __metadata:
     clsx: ^1.2.1
     make-cancellable-promise: ^1.0.0
     make-event-props: ^1.4.2
-    merge-refs: ^1.0.0
+    merge-refs: ^1.1.2
     pdfjs-dist: 3.3.122
     prop-types: ^15.6.2
     tiny-invariant: ^1.0.0

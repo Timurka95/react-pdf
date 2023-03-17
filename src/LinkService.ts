@@ -14,27 +14,41 @@
  */
 import invariant from 'tiny-invariant';
 
+import type { PDFDocumentProxy } from 'pdfjs-dist';
+import type { Dest, ExplicitDest, ExternalLinkRel, ExternalLinkTarget } from './shared/types';
+
 const DEFAULT_LINK_REL = 'noopener noreferrer nofollow';
 
 export default class LinkService {
+  externalLinkEnabled: boolean;
+  externalLinkRel?: ExternalLinkRel;
+  externalLinkTarget?: ExternalLinkTarget;
+  isInPresentationMode: boolean;
+  pdfDocument?: PDFDocumentProxy | null;
+  pdfViewer?: any | null;
+
   constructor() {
-    this.externalLinkTarget = null;
-    this.externalLinkRel = null;
+    this.externalLinkEnabled = true;
+    this.externalLinkRel = undefined;
+    this.externalLinkTarget = undefined;
+    this.isInPresentationMode = false;
+    this.pdfDocument = undefined;
+    this.pdfViewer = undefined;
   }
 
-  setDocument(pdfDocument) {
+  setDocument(pdfDocument: PDFDocumentProxy) {
     this.pdfDocument = pdfDocument;
   }
 
-  setViewer(pdfViewer) {
+  setViewer(pdfViewer: any) {
     this.pdfViewer = pdfViewer;
   }
 
-  setExternalLinkRel(externalLinkRel) {
+  setExternalLinkRel(externalLinkRel?: ExternalLinkRel) {
     this.externalLinkRel = externalLinkRel;
   }
 
-  setExternalLinkTarget(externalLinkTarget) {
+  setExternalLinkTarget(externalLinkTarget?: ExternalLinkTarget) {
     this.externalLinkTarget = externalLinkTarget;
   }
 
@@ -62,8 +76,12 @@ export default class LinkService {
     // Intentionally empty
   }
 
-  goToDestination(dest) {
-    new Promise((resolve) => {
+  goToDestination(dest: Dest): Promise<void> {
+    return new Promise<ExplicitDest | null>((resolve) => {
+      invariant(this.pdfDocument, 'PDF document not loaded.');
+
+      invariant(dest, 'Destination is not specified.');
+
       if (typeof dest === 'string') {
         this.pdfDocument.getDestination(dest).then(resolve);
       } else if (Array.isArray(dest)) {
@@ -76,7 +94,9 @@ export default class LinkService {
 
       const destRef = explicitDest[0];
 
-      new Promise((resolve) => {
+      new Promise<number>((resolve) => {
+        invariant(this.pdfDocument, 'PDF document not loaded.');
+
         if (destRef instanceof Object) {
           this.pdfDocument
             .getPageIndex(destRef)
@@ -108,7 +128,7 @@ export default class LinkService {
     });
   }
 
-  navigateTo(dest) {
+  navigateTo(dest: Dest) {
     this.goToDestination(dest);
   }
 
@@ -116,7 +136,7 @@ export default class LinkService {
     // Intentionally empty
   }
 
-  addLinkAttributes(link, url, newWindow) {
+  addLinkAttributes(link: HTMLAnchorElement, url: string, newWindow: boolean) {
     link.href = url;
     link.rel = this.externalLinkRel || DEFAULT_LINK_REL;
     link.target = newWindow ? '_blank' : this.externalLinkTarget || '';
@@ -148,5 +168,9 @@ export default class LinkService {
 
   isPageCached() {
     return true;
+  }
+
+  executeSetOCGState() {
+    // Intentionally empty
   }
 }

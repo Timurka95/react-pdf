@@ -38,9 +38,74 @@ import {
 
 import { eventProps, isClassName, isFile, isRef } from './shared/propTypes';
 
+import type { PDFDocumentProxy } from 'pdfjs-dist';
+import type {
+  ClassName,
+  ExternalLinkRel,
+  ExternalLinkTarget,
+  File,
+  ImageResourcesPath,
+  NodeOrRenderer,
+  OnError,
+  OnItemClickArgs,
+  OnLoadProgressArgs,
+  OnPasswordCallback,
+  Options,
+  PasswordResponse,
+  RenderMode,
+  Source,
+} from './shared/types';
+
 const { PDFDataRangeTransport } = pdfjs;
 
-const defaultOnPassword = (callback, reason) => {
+type OnItemClick = (args: OnItemClickArgs) => void;
+
+type OnLoadError = OnError;
+
+type OnLoadProgress = (args: OnLoadProgressArgs) => void;
+
+type OnLoadSuccess = (pdf: PDFDocumentProxy) => void;
+
+type OnPassword = (callback: OnPasswordCallback, reason: PasswordResponse) => void;
+
+type OnSourceError = OnError;
+
+type OnSourceSuccess = () => void;
+
+type DocumentProps = {
+  children?: React.ReactNode;
+  className?: ClassName;
+  error?: NodeOrRenderer;
+  externalLinkRel?: ExternalLinkRel;
+  externalLinkTarget?: ExternalLinkTarget;
+  file?: File;
+  imageResourcesPath?: ImageResourcesPath;
+  inputRef?: React.Ref<HTMLDivElement>;
+  loading?: NodeOrRenderer;
+  noData?: NodeOrRenderer;
+  onItemClick?: OnItemClick;
+  onLoadError?: OnLoadError;
+  onLoadProgress?: OnLoadProgress;
+  onLoadSuccess?: OnLoadSuccess;
+  onPassword?: OnPassword;
+  onSourceError?: OnSourceError;
+  onSourceSuccess?: OnSourceSuccess;
+  options?: Options;
+  renderMode?: RenderMode;
+  rotate?: number | null;
+};
+
+function objectWithoutNull<T>(obj: T): T {
+  const acc: Partial<T> = {};
+
+  for (const key in obj) {
+    if (obj[key] !== null) acc[key] = obj[key];
+  }
+
+  return acc as T;
+}
+
+const defaultOnPassword: OnPassword = (callback, reason) => {
   switch (reason) {
     case PasswordResponses.NEED_PASSWORD: {
       // eslint-disable-next-line no-alert
@@ -81,21 +146,21 @@ const Document = forwardRef(function Document(
     renderMode,
     rotate,
     ...otherProps
-  },
+  }: DocumentProps,
   ref,
 ) {
-  const [source, setSource] = useState(undefined);
-  const [sourceError, setSourceError] = useState(undefined);
-  const [pdf, setPdf] = useState(undefined);
-  const [pdfError, setPdfError] = useState(undefined);
+  const [source, setSource] = useState<Source | null | false>();
+  const [sourceError, setSourceError] = useState<Error>();
+  const [pdf, setPdf] = useState<PDFDocumentProxy | false>();
+  const [pdfError, setPdfError] = useState<Error>();
 
   const linkService = useRef(new LinkService());
 
-  const pages = useRef([]);
+  const pages = useRef<HTMLDivElement[]>([]);
 
   const viewer = useRef({
     // Handling jumping to internal links target
-    scrollPageIntoView: ({ dest, pageIndex, pageNumber }) => {
+    scrollPageIntoView: ({ dest, pageIndex, pageNumber }: OnItemClickArgs) => {
       // First, check if custom handling of onItemClick was provided
       if (onItemClick) {
         onItemClick({ dest, pageIndex, pageNumber });
@@ -143,7 +208,12 @@ const Document = forwardRef(function Document(
    * Called when a document source failed to be resolved correctly
    */
   function onSourceError() {
-    warning(false, sourceError);
+    if (!sourceError) {
+      // Impossible, but TypeScript doesn't know that
+      return;
+    }
+
+    warning(false, sourceError.toString());
 
     if (onSourceErrorProps) {
       onSourceErrorProps(sourceError);
@@ -157,7 +227,7 @@ const Document = forwardRef(function Document(
 
   useEffect(resetSource, [file]);
 
-  const findDocumentSource = useCallback(async () => {
+  const findDocumentSource = useCallback(async (): Promise<Source | null> => {
     if (!file) {
       return null;
     }
@@ -255,6 +325,11 @@ const Document = forwardRef(function Document(
    * Called when a document is read successfully
    */
   function onLoadSuccess() {
+    if (!pdf) {
+      // Impossible, but TypeScript doesn't know that
+      return;
+    }
+
     if (onLoadSuccessProps) {
       onLoadSuccessProps(pdf);
     }
@@ -267,7 +342,12 @@ const Document = forwardRef(function Document(
    * Called when a document failed to read successfully
    */
   function onLoadError() {
-    warning(false, pdfError);
+    if (!pdfError) {
+      // Impossible, but TypeScript doesn't know that
+      return;
+    }
+
+    warning(false, pdfError.toString());
 
     if (onLoadErrorProps) {
       onLoadErrorProps(pdfError);
@@ -286,7 +366,14 @@ const Document = forwardRef(function Document(
       return;
     }
 
-    const destroyable = pdfjs.getDocument({ ...source, ...options });
+    const documentInitParams = options
+      ? {
+          ...source,
+          ...objectWithoutNull(options),
+        }
+      : source;
+
+    const destroyable = pdfjs.getDocument(documentInitParams);
     if (onLoadProgress) {
       destroyable.onProgress = onLoadProgress;
     }
@@ -337,11 +424,11 @@ const Document = forwardRef(function Document(
 
   useEffect(setupLinkService, [externalLinkRel, externalLinkTarget]);
 
-  function registerPage(pageIndex, ref) {
+  function registerPage(pageIndex: number, ref: HTMLDivElement) {
     pages.current[pageIndex] = ref;
   }
 
-  function unregisterPage(pageIndex) {
+  function unregisterPage(pageIndex: number) {
     delete pages.current[pageIndex];
   }
 

@@ -2,12 +2,20 @@ import PropTypes from 'prop-types';
 import { mouseEvents, touchEvents, keyboardEvents } from 'make-event-props';
 import { PDFDataRangeTransport } from 'pdfjs-dist';
 
-import { isDefined } from './utils';
-
 import LinkService from '../LinkService';
 
-export const eventProps = (() => {
-  const result = {};
+import { PDFDataRangeTransport, PDFDocumentProxy } from 'pdfjs-dist';
+
+const mouseTouchKeyboardEvents = [...mouseEvents, ...touchEvents, ...keyboardEvents];
+
+type MouseTouchKeyboardEvents = (typeof mouseTouchKeyboardEvents)[number];
+
+type Props = {
+  [K in MouseTouchKeyboardEvents]?: typeof PropTypes.func;
+};
+
+export const eventProps: Props = (() => {
+  const result = {} as Props;
 
   [...mouseEvents, ...touchEvents, ...keyboardEvents].forEach((eventName) => {
     result[eventName] = PropTypes.func;
@@ -47,7 +55,7 @@ const fileTypes = [
   }),
 ];
 if (typeof Blob !== 'undefined') {
-  fileTypes.push(PropTypes.instanceOf(Blob));
+  (fileTypes as Array<PropTypes.Validator<unknown>>).push(PropTypes.instanceOf(Blob));
 }
 
 export const isClassName = PropTypes.oneOfType([
@@ -69,14 +77,18 @@ export const isPage = PropTypes.shape({
   render: PropTypes.func.isRequired,
 });
 
-export function isPageIndex(props, propName, componentName) {
+export function isPageIndex(
+  props: Record<string, unknown> & { pdf?: PDFDocumentProxy },
+  propName: string,
+  componentName: string,
+) {
   const { [propName]: pageIndex, pageNumber, pdf } = props;
 
-  if (!isDefined(pdf)) {
+  if (typeof pdf === 'undefined') {
     return null;
   }
 
-  if (isDefined(pageIndex)) {
+  if (typeof pageIndex !== 'undefined') {
     if (typeof pageIndex !== 'number') {
       return new Error(
         `\`${propName}\` of type \`${typeof pageIndex}\` supplied to \`${componentName}\`, expected \`number\`.`,
@@ -92,7 +104,7 @@ export function isPageIndex(props, propName, componentName) {
     if (pageIndex + 1 > numPages) {
       return new Error(`Expected \`${propName}\` to be less or equal to ${numPages - 1}.`);
     }
-  } else if (!isDefined(pageNumber)) {
+  } else if (typeof pageNumber === 'undefined') {
     return new Error(
       `\`${propName}\` not supplied. Either pageIndex or pageNumber must be supplied to \`${componentName}\`.`,
     );
@@ -102,14 +114,18 @@ export function isPageIndex(props, propName, componentName) {
   return null;
 }
 
-export function isPageNumber(props, propName, componentName) {
+export function isPageNumber(
+  props: Record<string, unknown> & { pdf?: PDFDocumentProxy },
+  propName: string,
+  componentName: string,
+) {
   const { [propName]: pageNumber, pageIndex, pdf } = props;
 
-  if (!isDefined(pdf)) {
+  if (typeof pdf === 'undefined') {
     return null;
   }
 
-  if (isDefined(pageNumber)) {
+  if (typeof pageNumber !== 'undefined') {
     if (typeof pageNumber !== 'number') {
       return new Error(
         `\`${propName}\` of type \`${typeof pageNumber}\` supplied to \`${componentName}\`, expected \`number\`.`,
@@ -125,7 +141,7 @@ export function isPageNumber(props, propName, componentName) {
     if (pageNumber > numPages) {
       return new Error(`Expected \`${propName}\` to be less or equal to ${numPages}.`);
     }
-  } else if (!isDefined(pageIndex)) {
+  } else if (typeof pageIndex === 'undefined') {
     return new Error(
       `\`${propName}\` not supplied. Either pageIndex or pageNumber must be supplied to \`${componentName}\`.`,
     );
@@ -148,7 +164,8 @@ export const isPdf = PropTypes.oneOfType([
 export const isRef = PropTypes.oneOfType([
   PropTypes.func,
   PropTypes.shape({
-    current: PropTypes.any,
+    current: PropTypes.oneOfType([PropTypes.instanceOf(HTMLDivElement), PropTypes.oneOf([null])])
+      .isRequired,
   }),
 ]);
 

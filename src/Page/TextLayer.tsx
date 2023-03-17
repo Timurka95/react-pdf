@@ -16,6 +16,12 @@ import PageContext from '../PageContext';
 
 import { cancelRunningTask } from '../shared/utils';
 
+import type { TextContent, TextItem, TextMarkedContent } from 'pdfjs-dist/types/src/display/api';
+
+function isTextItem(item: TextItem | TextMarkedContent): item is TextItem {
+  return 'str' in item;
+}
+
 export default function TextLayer() {
   const context = useContext(PageContext);
 
@@ -34,10 +40,10 @@ export default function TextLayer() {
     scale,
   } = context;
 
-  const [textContent, setTextContent] = useState(undefined);
-  const [textContentError, setTextContentError] = useState(undefined);
-  const layerElement = useRef();
-  const endElement = useRef();
+  const [textContent, setTextContent] = useState<TextContent | false>();
+  const [textContentError, setTextContentError] = useState<Error>();
+  const layerElement = useRef<HTMLDivElement | null>(null);
+  const endElement = useRef<HTMLElement>();
 
   invariant(page, 'Attempted to load page text content, but no page was specified.');
 
@@ -53,6 +59,11 @@ export default function TextLayer() {
    * Called when a page text content is read successfully
    */
   function onLoadSuccess() {
+    if (!textContent) {
+      // Impossible, but TypeScript doesn't know that
+      return;
+    }
+
     if (onGetTextSuccess) {
       onGetTextSuccess(textContent);
     }
@@ -62,7 +73,12 @@ export default function TextLayer() {
    * Called when a page text content failed to read successfully
    */
   function onLoadError() {
-    warning(false, textContentError);
+    if (!textContentError) {
+      // Impossible, but TypeScript doesn't know that
+      return;
+    }
+
+    warning(false, textContentError.toString());
 
     if (onGetTextError) {
       onGetTextError(textContentError);
@@ -77,6 +93,10 @@ export default function TextLayer() {
   useEffect(resetTextContent, [page]);
 
   function loadTextContent() {
+    if (!page) {
+      return;
+    }
+
     const cancellable = makeCancellable(page.getTextContent());
     const runningTask = cancellable;
 
@@ -121,8 +141,8 @@ export default function TextLayer() {
    * Called when a text layer failed to render successfully
    */
   const onRenderError = useCallback(
-    (error) => {
-      warning(false, error);
+    (error: Error) => {
+      warning(false, error.toString());
 
       if (onRenderTextLayerError) {
         onRenderTextLayerError(error);
@@ -157,11 +177,15 @@ export default function TextLayer() {
   );
 
   function renderTextLayer() {
-    if (!textContent) {
+    if (!page || !textContent) {
       return;
     }
 
     const { current: layer } = layerElement;
+
+    if (!layer) {
+      return;
+    }
 
     layer.innerHTML = '';
 
@@ -186,7 +210,15 @@ export default function TextLayer() {
         if (customTextRenderer) {
           let index = 0;
           textContent.items.forEach((item, itemIndex) => {
+            if (!isTextItem(item)) {
+              return;
+            }
+
             const child = layer.children[index];
+
+            if (!child) {
+              return;
+            }
 
             const content = customTextRenderer({
               pageIndex,

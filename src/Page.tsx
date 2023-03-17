@@ -16,7 +16,7 @@ import PageSVG from './Page/PageSVG';
 import TextLayer from './Page/TextLayer';
 import AnnotationLayer from './Page/AnnotationLayer';
 
-import { cancelRunningTask, isProvided, makePageCallback } from './shared/utils';
+import { cancelRunningTask, makePageCallback } from './shared/utils';
 
 import {
   eventProps,
@@ -29,9 +29,70 @@ import {
   isRotate,
 } from './shared/propTypes';
 
+import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
+import type {
+  CustomTextRenderer,
+  NodeOrRenderer,
+  OnGetAnnotationsError,
+  OnGetAnnotationsSuccess,
+  OnGetTextError,
+  OnGetTextSuccess,
+  OnPageLoadError,
+  OnPageLoadSuccess,
+  OnRenderAnnotationLayerError,
+  OnRenderAnnotationLayerSuccess,
+  OnRenderError,
+  OnRenderSuccess,
+  OnRenderTextLayerError,
+  OnRenderTextLayerSuccess,
+  RegisterPage,
+  RenderMode,
+  UnregisterPage,
+} from './shared/types';
+
 const defaultScale = 1;
 
-export default function Page(props) {
+type PageProps = {
+  canvasBackground?: string;
+  canvasRef?: React.Ref<HTMLCanvasElement>;
+  children?: React.ReactNode;
+  className?: string;
+  customTextRenderer?: CustomTextRenderer;
+  devicePixelRatio?: number;
+  error?: NodeOrRenderer;
+  height?: number;
+  imageResourcesPath?: string;
+  inputRef?: React.Ref<HTMLDivElement>;
+  loading?: NodeOrRenderer;
+  noData?: NodeOrRenderer;
+  onGetAnnotationsError?: OnGetAnnotationsError;
+  onGetAnnotationsSuccess?: OnGetAnnotationsSuccess;
+  onGetTextError?: OnGetTextError;
+  onGetTextSuccess?: OnGetTextSuccess;
+  onLoadError?: OnPageLoadError;
+  onLoadSuccess?: OnPageLoadSuccess;
+  onRenderAnnotationLayerError?: OnRenderAnnotationLayerError;
+  onRenderAnnotationLayerSuccess?: OnRenderAnnotationLayerSuccess;
+  onRenderError?: OnRenderError;
+  onRenderSuccess?: OnRenderSuccess;
+  onRenderTextLayerError?: OnRenderTextLayerError;
+  onRenderTextLayerSuccess?: OnRenderTextLayerSuccess;
+  pageIndex?: number;
+  pageNumber?: number;
+  pdf?: PDFDocumentProxy | false;
+  registerPage: RegisterPage;
+  renderAnnotationLayer?: boolean;
+  renderForms?: boolean;
+  renderInteractiveForms?: boolean;
+  renderMode?: RenderMode;
+  renderTextLayer?: boolean;
+  rotate?: number | null;
+  scale?: number;
+  unregisterPage: UnregisterPage;
+  width?: number;
+};
+
+export default function Page(props: PageProps) {
   const context = useContext(DocumentContext);
 
   invariant(context, 'Unable to find Document context. Did you wrap <Page /> in <Document />?');
@@ -76,15 +137,20 @@ export default function Page(props) {
     ...otherProps
   } = mergedProps;
 
-  const [page, setPage] = useState(undefined);
-  const [pageError, setPageError] = useState(undefined);
-  const pageElement = useRef();
+  const [page, setPage] = useState<PDFPageProxy | false>();
+  const [pageError, setPageError] = useState<Error>();
+  const pageElement = useRef<HTMLDivElement>(null);
 
   invariant(pdf, 'Attempted to load a page, but no document was specified.');
 
-  const pageIndex = isProvided(pageNumberProps) ? pageNumberProps - 1 : pageIndexProps ?? null;
+  const pageIndex =
+    typeof pageNumberProps !== 'undefined' && pageNumberProps !== null
+      ? pageNumberProps - 1
+      : pageIndexProps ?? null;
 
-  const pageNumber = pageNumberProps ?? (isProvided(pageIndexProps) ? pageIndexProps + 1 : null);
+  const pageNumber =
+    pageNumberProps ??
+    (typeof pageIndexProps !== 'undefined' && pageIndexProps !== null ? pageIndexProps + 1 : null);
 
   const rotate = rotateProps ?? (page ? page.rotate : null);
 
@@ -101,8 +167,12 @@ export default function Page(props) {
 
     // If width/height is defined, calculate the scale of the page so it could be of desired width.
     if (width || height) {
-      const viewport = page.getViewport({ scale: 1, rotation: rotate });
-      pageScale = width ? width / viewport.width : height / viewport.height;
+      const viewport = page.getViewport({ scale: 1, rotation: rotate as number });
+      if (width) {
+        pageScale = width / viewport.width;
+      } else if (height) {
+        pageScale = height / viewport.height;
+      }
     }
 
     return scaleWithDefault * pageScale;
@@ -110,7 +180,7 @@ export default function Page(props) {
 
   function hook() {
     return () => {
-      if (unregisterPage) {
+      if (unregisterPage && pageIndex !== null) {
         unregisterPage(pageIndex);
       }
     };
@@ -123,10 +193,20 @@ export default function Page(props) {
    */
   function onLoadSuccess() {
     if (onLoadSuccessProps) {
+      if (!page || !scale) {
+        // Impossible, but TypeScript doesn't know that
+        return;
+      }
+
       onLoadSuccessProps(makePageCallback(page, scale));
     }
 
     if (registerPage) {
+      if (pageIndex === null || !pageElement.current) {
+        // Impossible, but TypeScript doesn't know that
+        return;
+      }
+
       registerPage(pageIndex, pageElement.current);
     }
   }
@@ -135,7 +215,12 @@ export default function Page(props) {
    * Called when a page failed to load
    */
   function onLoadError() {
-    warning(false, pageError);
+    if (!pageError) {
+      // Impossible, but TypeScript doesn't know that
+      return;
+    }
+
+    warning(false, pageError.toString());
 
     if (onLoadErrorProps) {
       onLoadErrorProps(pageError);
@@ -150,7 +235,7 @@ export default function Page(props) {
   useEffect(resetPage, [pdf, pageIndex]);
 
   function loadPage() {
-    if (!pageNumber) {
+    if (!pdf || !pageNumber) {
       return;
     }
 
@@ -201,16 +286,17 @@ export default function Page(props) {
         onRenderTextLayerError: onRenderTextLayerErrorProps,
         onRenderTextLayerSuccess: onRenderTextLayerSuccessProps,
         page,
-        pageIndex,
-        pageNumber,
+        // Can't load page without pageIndex, pageNumber, and scale
+        pageIndex: pageIndex as number,
+        pageNumber: pageNumber as number,
         renderForms,
-        rotate: rotate,
-        scale: scale,
+        rotate: rotate as number,
+        scale: scale as number,
       }
     : null;
 
   const eventProps = useMemo(
-    () => makeEventProps(otherProps, () => (page ? makePageCallback(page, scale) : null)),
+    () => makeEventProps(otherProps, () => (page && scale ? makePageCallback(page, scale) : null)),
     [otherProps, page, scale],
   );
 

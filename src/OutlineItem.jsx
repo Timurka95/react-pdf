@@ -7,12 +7,10 @@ import OutlineContext from './OutlineContext';
 
 import Ref from './Ref';
 
-import { isDefined } from './shared/utils';
-
 function useCachedValue(getter) {
   const ref = useRef();
 
-  if (isDefined(ref.current)) {
+  if (typeof ref.current !== 'undefined') {
     return () => ref.current;
   }
 
