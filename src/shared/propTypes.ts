@@ -4,7 +4,7 @@ import { PDFDataRangeTransport } from 'pdfjs-dist';
 
 import LinkService from '../LinkService';
 
-import { PDFDataRangeTransport, PDFDocumentProxy } from 'pdfjs-dist';
+import type { PDFDocumentProxy } from 'pdfjs-dist';
 
 const mouseTouchKeyboardEvents = [...mouseEvents, ...touchEvents, ...keyboardEvents];
 
