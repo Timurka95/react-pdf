@@ -4,18 +4,18 @@ import type {
   PDFPageProxy,
   PasswordResponses,
 } from 'pdfjs-dist';
-import type { BinaryData, TextContent } from 'pdfjs-dist/types/src/display/api';
+import type { BinaryData, RefProxy, TextContent, TextItem } from 'pdfjs-dist/types/src/display/api';
 
 import type LinkService from '../LinkService';
 
 /* Primitive types */
-export type TextItem = any;
+export type Annotations = any[];
 
 export type ClassName = string | null | undefined | (string | null | undefined)[];
 
-export type ExplicitDest = any[];
+export type ResolvedDest = (RefProxy | number)[];
 
-export type Dest = string | ExplicitDest | null | Promise<ExplicitDest>;
+export type Dest = Promise<ResolvedDest> | ResolvedDest | string | null;
 
 export type ExternalLinkRel = string;
 
@@ -26,7 +26,7 @@ export type ImageResourcesPath = string;
 export type OnError = (error: Error) => void;
 
 export type OnItemClickArgs = {
-  dest: Dest;
+  dest: ResolvedDest;
   pageIndex: number;
   pageNumber: number;
 };
@@ -58,7 +58,7 @@ export type NodeOrRenderer = React.ReactNode | (() => React.ReactNode);
 
 export type OnGetAnnotationsError = OnError;
 
-export type OnGetAnnotationsSuccess = (annotations: any[]) => void;
+export type OnGetAnnotationsSuccess = (annotations: Annotations) => void;
 
 export type OnGetTextError = OnError;
 
@@ -126,5 +126,5 @@ export type PageContextType = {
 } | null;
 
 export type OutlineContextType = {
-  onClick: (args: any) => void;
+  onClick: (args: OnItemClickArgs) => void;
 } | null;

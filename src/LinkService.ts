@@ -15,9 +15,11 @@
 import invariant from 'tiny-invariant';
 
 import type { PDFDocumentProxy } from 'pdfjs-dist';
-import type { Dest, ExplicitDest, ExternalLinkRel, ExternalLinkTarget } from './shared/types';
+import type { Dest, ResolvedDest, ExternalLinkRel, ExternalLinkTarget } from './shared/types';
 
 const DEFAULT_LINK_REL = 'noopener noreferrer nofollow';
+
+type PDFViewer = any;
 
 export default class LinkService {
   externalLinkEnabled: boolean;
@@ -25,7 +27,7 @@ export default class LinkService {
   externalLinkTarget?: ExternalLinkTarget;
   isInPresentationMode: boolean;
   pdfDocument?: PDFDocumentProxy | null;
-  pdfViewer?: any | null;
+  pdfViewer?: PDFViewer | null;
 
   constructor() {
     this.externalLinkEnabled = true;
@@ -40,7 +42,7 @@ export default class LinkService {
     this.pdfDocument = pdfDocument;
   }
 
-  setViewer(pdfViewer: any) {
+  setViewer(pdfViewer: PDFViewer) {
     this.pdfViewer = pdfViewer;
   }
 
@@ -77,7 +79,7 @@ export default class LinkService {
   }
 
   goToDestination(dest: Dest): Promise<void> {
-    return new Promise<ExplicitDest | null>((resolve) => {
+    return new Promise<ResolvedDest | null>((resolve) => {
       invariant(this.pdfDocument, 'PDF document not loaded.');
 
       invariant(dest, 'Destination is not specified.');

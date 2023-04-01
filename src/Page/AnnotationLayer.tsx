@@ -9,6 +9,8 @@ import PageContext from '../PageContext';
 
 import { cancelRunningTask } from '../shared/utils';
 
+import type { Annotations } from '../shared/types';
+
 export default function AnnotationLayer() {
   const documentContext = useContext(DocumentContext);
 
@@ -35,7 +37,7 @@ export default function AnnotationLayer() {
     scale = 1,
   } = mergedProps;
 
-  const [annotations, setAnnotations] = useState<any | false>();
+  const [annotations, setAnnotations] = useState<Annotations | false>();
   const [annotationsError, setAnnotationsError] = useState<Error>();
   const layerElement = useRef<HTMLDivElement | null>(null);
 
